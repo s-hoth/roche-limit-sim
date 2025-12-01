@@ -4,6 +4,18 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// star background setup
+const stars = [];
+for (let i = 0; i < 200; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.5,
+        a: 0.3 + Math.random() * 0.7
+    });
+}
+
+
 function randomColor() {
     return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
 }
@@ -320,6 +332,19 @@ canvas.addEventListener("mouseup", () => {
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Background
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Stars
+    for (const s of stars) {
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255, 255, 255, ${s.a})`;
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+
     // Hill radius circle (outer)
     ctx.beginPath();
     ctx.strokeStyle = "cyan";
@@ -336,6 +361,16 @@ function animate() {
     ctx.arc(canvas.width / 2, canvas.height / 2, rocheLimit * Planet.SCALE, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Safe orbital zone shading for more distinct visuals 
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, hillRadius * Planet.SCALE, 0, Math.PI * 2);
+    ctx.arc(canvas.width / 2, canvas.height / 2, rocheLimit * Planet.SCALE, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0, 255, 255, 0.05)"; // faint cyan glow
+    ctx.fill();
+    ctx.restore();
 
     // Legend text 
     ctx.save();
@@ -388,3 +423,32 @@ function animate() {
 }
 
 animate();
+
+// Reset button logic
+document.getElementById("reset").addEventListener("click", () => {
+    planets = [sun];
+    fragments = [];
+
+    const planetCount = 4 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < planetCount; i++) {
+        const minDist = rocheLimit + 0.05 * Planet.AU;
+        const maxDist = hillRadius * 0.9;
+        const dist = minDist + Math.random() * (maxDist - minDist);
+        const angle = Math.random() * Math.PI * 2;
+        const x = dist * Math.cos(angle);
+        const y = dist * Math.sin(angle);
+
+        const radius = 8 + Math.random() * 12;
+        const mass = 3e23 + Math.random() * 1e24;
+
+        const p = new Planet(x, y, radius, randomColor(), mass);
+
+        const speed = Math.sqrt(Planet.G * sun.mass / dist);
+        const vx = -speed * Math.sin(angle);
+        const vy = speed * Math.cos(angle);
+        p.x_vel = vx;
+        p.y_vel = vy;
+
+        planets.push(p);
+    }
+});
