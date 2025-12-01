@@ -31,6 +31,8 @@ class Planet {
         this.breaking = false;
         this.breakTimer = 0;
         this.inRoche = false;
+
+        this.escaped = false; // true once it leaves the Hill sphere
     }
 
     draw() {
@@ -52,8 +54,14 @@ class Planet {
         }
 
         ctx.beginPath();
-        ctx.fillStyle = this.color;
-        if (this.breaking && !this.sun) {
+let bodyColor = this.color;
+if (this.escaped && !this.sun) {
+    bodyColor = "gray"; // faded/escaped look
+}
+ctx.fillStyle = bodyColor;
+
+if (this.breaking && !this.sun) {
+
             const dx = this.x - sun.x;
             const dy = this.y - sun.y;
             const angle = Math.atan2(dy, dx);
@@ -112,27 +120,38 @@ class Planet {
 
     updatePosition(planets) {
         if (this.isDragging) return;
-
+    
+        // escaped bodies just keep flying with current velocity
+        if (this.escaped && !this.sun) {
+            this.x += this.x_vel * Planet.TIMESTEP;
+            this.y += this.y_vel * Planet.TIMESTEP;
+    
+            this.orbit.push([this.x, this.y]);
+            if (this.orbit.length > 3000) this.orbit.shift();
+    
+            return; // <-- early exit for escaped bodies
+        }
+    
         let total_fx = 0;
         let total_fy = 0;
-
+    
         for (let planet of planets) {
             if (planet === this) continue;
             const [fx, fy] = this.attraction(planet);
             total_fx += fx;
             total_fy += fy;
         }
-
+    
         this.x_vel += total_fx / this.mass * Planet.TIMESTEP;
         this.y_vel += total_fy / this.mass * Planet.TIMESTEP;
-
+    
         this.x += this.x_vel * Planet.TIMESTEP;
         this.y += this.y_vel * Planet.TIMESTEP;
-
+    
         this.orbit.push([this.x, this.y]);
         if (this.orbit.length > 3000) this.orbit.shift();
     }
-}
+}    
 
 class Fragment {
     constructor(x, y, vx, vy, radius, color) {
@@ -215,11 +234,13 @@ const sun = new Planet(0, 0, 30, randomColor(), 1.98892e30, true);
 let planets = [sun];
 const rocheLimit = 0.5 * Planet.AU;
 
+const hillRadius = 1.2 * Planet.AU; // simple Hill sphere radius for visualization
+
 // spawn 4-5 planets outside Roche limit in random 2D positions
 const planetCount = 4 + Math.floor(Math.random()*2);
 for (let i = 0; i < planetCount; i++) {
     const minDist = rocheLimit + 0.05*Planet.AU;
-    const maxDist = 1.8 * Planet.AU;
+    const maxDist = hillRadius * 0.9; // Use hillRadius so they start inside it
     const dist = minDist + Math.random() * (maxDist - minDist);
     const angle = Math.random() * Math.PI * 2;
     const x = dist * Math.cos(angle);
@@ -282,6 +303,11 @@ canvas.addEventListener("mouseup", () => {
     selectedPlanet.x_vel = -speed * Math.sin(angle);
     selectedPlanet.y_vel = speed * Math.cos(angle);
 
+    // If released inside the Hill sphere, it's captured again
+    if (dist < hillRadius) {
+        selectedPlanet.escaped = false;
+    }
+
     if (dist < rocheLimit) {
         selectedPlanet.inRoche = true;
         selectedPlanet.breaking = true;
@@ -294,7 +320,15 @@ canvas.addEventListener("mouseup", () => {
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // roche limit circle
+    // Hill radius circle (outer)
+ctx.beginPath();
+ctx.strokeStyle = "cyan";
+ctx.setLineDash([10, 5]);
+ctx.lineWidth = 2;
+ctx.arc(canvas.width / 2, canvas.height / 2, hillRadius * Planet.SCALE, 0, Math.PI * 2);
+ctx.stroke();
+
+    // roche limit circle (inner)
     ctx.beginPath();
     ctx.strokeStyle = "white";
     ctx.setLineDash([5, 5]);
@@ -302,6 +336,16 @@ function animate() {
     ctx.arc(canvas.width / 2, canvas.height / 2, rocheLimit * Planet.SCALE, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Legend text 
+ctx.save();
+ctx.font = "16px Arial";
+ctx.fillStyle = "white";
+ctx.fillText("Inner dashed circle: Roche limit (tidal breakup zone)", 20, 30);
+ctx.fillStyle = "cyan";
+ctx.fillText("Outer dashed circle: Hill sphere (outer limit for stable orbit)", 20, 55);
+ctx.restore();
+
 
     planets = planets.filter(planet => {
         if (!planet.sun && planet.breaking && planet.inRoche) {
@@ -329,6 +373,10 @@ function animate() {
         }
 
         planet.updatePosition(planets);
+        // Hill sphere escape check
+    if (!planet.sun && !planet.escaped && planet.distance_to_sun > hillRadius) {
+        planet.escaped = true;
+    }
         planet.draw();
         return true;
     });
