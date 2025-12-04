@@ -469,14 +469,15 @@ function animate() {
     ctx.fill();
     ctx.restore();
 
-    // Legend text 
-    ctx.save();
-    ctx.font = "16px Arial";
-    ctx.fillStyle = "white";
-    ctx.fillText("Inner dashed circle: Roche limit (tidal breakup zone)", 20, 30);
-    ctx.fillStyle = "cyan";
-    ctx.fillText("Outer dashed circle: Hill sphere (outer limit for stable orbit)", 20, 55);
-    ctx.restore();
+    // Legend text (bottom-left so it doesn't collide with the reset button)
+ctx.save();
+ctx.font = "16px Arial";
+ctx.fillStyle = "white";
+ctx.fillText("Inner dashed circle: Roche limit", 20, canvas.height - 60);
+ctx.fillStyle = "cyan";
+ctx.fillText("Outer dashed circle: Hill sphere", 20, canvas.height - 35);
+ctx.restore();
+
 
 
     planets = planets.filter(planet => {
