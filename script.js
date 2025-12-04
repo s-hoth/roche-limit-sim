@@ -120,7 +120,12 @@ class Planet {
     attraction(other) {
         const dx = other.x - this.x;
         const dy = other.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+// prevent insane forces when bodies overlap the center
+const minDistance = (this.sun || other.sun) ? 0.1 * Planet.AU : 1e9; // tweakable
+if (distance < minDistance) distance = minDistance;
+
 
         if (other.sun) this.distance_to_sun = distance;
 
@@ -131,6 +136,15 @@ class Planet {
     }
 
     updatePosition(planets) {
+
+    // 1) Keep the main body pinned at the center
+    if (this.sun) {
+        this.x = 0;
+        this.y = 0;
+        this.x_vel = 0;
+        this.y_vel = 0;
+        return;
+    }
         if (this.isDragging) return;
 
         // escaped bodies just keep flying with current velocity
@@ -296,12 +310,45 @@ canvas.addEventListener("mousedown", (e) => {
     }
 });
 
+canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault(); // stop scrolling
+
+    const touch = e.touches[0];
+    const mx = (touch.clientX - canvas.width / 2) / Planet.SCALE;
+    const my = (touch.clientY - canvas.height / 2) / Planet.SCALE;
+
+    for (let planet of planets) {
+        if (planet.sun) continue;
+        const dx = mx - planet.x;
+        const dy = my - planet.y;
+        if (Math.sqrt(dx * dx + dy * dy) < planet.radius / Planet.SCALE) {
+            selectedPlanet = planet;
+            planet.isDragging = true;
+            planet.orbit = [[mx, my]];
+            planet.x_vel = 0;
+            planet.y_vel = 0;
+            break;
+        }
+    }
+}, { passive: false });
+
+
 canvas.addEventListener("mousemove", (e) => {
     if (!selectedPlanet) return;
     selectedPlanet.x = (e.clientX - canvas.width / 2) / Planet.SCALE;
     selectedPlanet.y = (e.clientY - canvas.height / 2) / Planet.SCALE;
     selectedPlanet.orbit = [[selectedPlanet.x, selectedPlanet.y]];
 });
+
+canvas.addEventListener("touchmove", (e) => {
+    if (!selectedPlanet) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    selectedPlanet.x = (touch.clientX - canvas.width / 2) / Planet.SCALE;
+    selectedPlanet.y = (touch.clientY - canvas.height / 2) / Planet.SCALE;
+    selectedPlanet.orbit = [[selectedPlanet.x, selectedPlanet.y]];
+}, { passive: false });
 
 canvas.addEventListener("mouseup", () => {
     if (!selectedPlanet) return;
@@ -327,6 +374,32 @@ canvas.addEventListener("mouseup", () => {
 
     selectedPlanet = null;
 });
+
+canvas.addEventListener("touchend", (e) => {
+    if (!selectedPlanet) return;
+    e.preventDefault();
+
+    selectedPlanet.isDragging = false;
+
+    const dx = selectedPlanet.x - sun.x;
+    const dy = selectedPlanet.y - sun.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const speed = Math.sqrt(Planet.G * sun.mass / dist);
+    const angle = Math.atan2(dy, dx);
+    selectedPlanet.x_vel = -speed * Math.sin(angle);
+    selectedPlanet.y_vel = speed * Math.cos(angle);
+
+    if (dist < hillRadius) {
+        selectedPlanet.escaped = false;
+    }
+
+    if (dist < rocheLimit) {
+        selectedPlanet.inRoche = true;
+        selectedPlanet.breaking = true;
+    }
+
+    selectedPlanet = null;
+}, { passive: false });
 
 // animation loop
 function animate() {
