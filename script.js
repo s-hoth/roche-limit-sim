@@ -1,8 +1,14 @@
 const canvas = document.getElementById("simulation");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
 
 // star background setup
 const stars = [];
@@ -209,7 +215,7 @@ class Fragment {
         this.y += this.y_vel * Planet.TIMESTEP;
 
         this.ringTrail.push([this.x, this.y]);
-        if (this.ringTrail.length > 500) this.ringTrail.shift();
+        if (this.ringTrail.length > 150) this.ringTrail.shift();
 
         this.radius *= 0.995;
         this.life -= 1;
@@ -456,16 +462,17 @@ function animate() {
 
 
     planets = planets.filter(planet => {
-        if (!planet.sun && planet.breaking && planet.inRoche) {
-            planet.breakTimer++;
-            planet.radius -= 0.2;
-
-            for (let i = 0; i < 5; i++) {
+    if (!planet.sun && planet.breaking && planet.inRoche) {
+        // Only spawn fragments ONCE, when breaking starts
+        if (planet.breakTimer === 0) {
+            const fragmentCount = 25; // tweak as you like
+            for (let i = 0; i < fragmentCount; i++) {
                 const dx = sun.x - planet.x;
                 const dy = sun.y - planet.y;
                 const angleToSun = Math.atan2(dy, dx);
                 const angle = angleToSun + (Math.random() - 0.5) * Math.PI / 12;
-                const speed = (Math.random() * 0.3 + 0.3) * Math.sqrt(Planet.G * sun.mass / planet.distance_to_sun);
+                const speed = (Math.random() * 0.3 + 0.3) *
+                              Math.sqrt(Planet.G * sun.mass / planet.distance_to_sun);
 
                 fragments.push(new Fragment(
                     planet.x,
@@ -476,18 +483,19 @@ function animate() {
                     planet.color
                 ));
             }
-
-            if (planet.radius <= 0) return false;
         }
 
-        planet.updatePosition(planets);
-        // Hill sphere escape check
-        if (!planet.sun && !planet.escaped && planet.distance_to_sun > hillRadius) {
-            planet.escaped = true;
-        }
-        planet.draw();
-        return true;
-    });
+        planet.breakTimer++;
+        planet.radius -= 0.4; // shrink a bit faster so it disappears sooner
+
+        if (planet.radius <= 0) return false;
+    }
+
+    planet.updatePosition(planets);
+    planet.draw();
+    return true;
+});
+
 
     fragments = fragments.filter(f => f.life > 0 && f.radius > 0);
     fragments.forEach(f => { f.updatePosition(); f.draw(); });
