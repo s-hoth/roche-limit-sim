@@ -185,6 +185,24 @@ if (distance < minDistance) distance = minDistance;
     }
 }
 
+// --- AUTO-SCALE FOR MOBILE / TABLET / DESKTOP ---
+function autoAdjustScale() {
+    if (window.innerWidth < 600) {
+        // phone
+        Planet.SCALE = 170 / Planet.AU;
+    } else if (window.innerWidth < 900) {
+        // tablet
+        Planet.SCALE = 210 / Planet.AU;
+    } else {
+        // desktop
+        Planet.SCALE = 250 / Planet.AU;
+    }
+}
+
+autoAdjustScale();
+window.addEventListener("resize", autoAdjustScale);
+
+
 class Fragment {
     constructor(x, y, vx, vy, radius, color) {
         this.x = x;
