@@ -29,7 +29,7 @@ function randomColor() {
 class Planet {
     static AU = 149.6e6 * 1000;
     static G = 6.67428e-11;
-    static SCALE = 250 / Planet.AU;
+    static SCALE = 200 / Planet.AU;
     static TIMESTEP = 3600 * 6;
 
     constructor(x, y, radius, color, mass, sun = false) {
