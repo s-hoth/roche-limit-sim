@@ -492,9 +492,16 @@ function animate() {
     }
 
     planet.updatePosition(planets);
+
+    // 🔹 Hill sphere escape check – this is what was missing
+    if (!planet.sun && !planet.escaped && planet.distance_to_sun > hillRadius) {
+        planet.escaped = true;
+    }
+
     planet.draw();
     return true;
 });
+
 
 
     fragments = fragments.filter(f => f.life > 0 && f.radius > 0);
